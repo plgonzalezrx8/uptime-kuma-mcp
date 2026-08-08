@@ -1,6 +1,6 @@
 # Proposal 0001: Initial architecture and feature scope
 
-- **Status:** Proposed — not approved for implementation
+- **Status:** Proposed — FastMCP selected by project owner; remaining architecture not yet approved for implementation
 - **Date:** 2026-08-08
 - **Repository:** `plgonzalezrx8/uptime-kuma-mcp`
 - **License:** MIT
@@ -31,9 +31,9 @@ There are already multiple MIT-licensed MCPs. `DavidFuchs/mcp-uptime-kuma` is ac
 
 ## 3. Product options
 
-### Option A — New clean-room safety-first MCP
+### Option A — New clean-room safety-first FastMCP server
 
-Build a narrow TypeScript adapter directly against Kuma's Socket.IO contract.
+Build a narrow Python FastMCP server with a direct asynchronous adapter against Kuma's Socket.IO contract. FastMCP is a project-owner requirement.
 
 **Benefits**
 - Full control over safety defaults and compatibility policy.
@@ -73,7 +73,7 @@ Contribute safety, verification, and compatibility improvements to the active pr
 
 ### Recommendation
 
-**Recommend Option A only if the safety policy itself is the product. Otherwise choose Option C.** Building another broad, undifferentiated Kuma MCP would be wasted effort.
+**FastMCP selects the new Python implementation direction, but Option A is still worthwhile only if the safety policy itself is the product.** Building another broad, undifferentiated Kuma MCP would be wasted effort.
 
 The remainder of this proposal describes Option A.
 
@@ -93,24 +93,28 @@ flowchart LR
 
 ### Runtime
 
-- TypeScript on a current Node.js LTS runtime.
-- Official MCP TypeScript SDK.
-- `socket.io-client` for Kuma's internal management interface.
-- One persistent Socket.IO connection to one Kuma instance in v1.
+- Python 3.12.
+- FastMCP stable 3.x, initially pinned exactly to `fastmcp==3.4.6`; FastMCP 4 prereleases are excluded.
+- `python-socketio[asyncio-client]==5.16.3` with `AsyncClient` for Kuma's internal management interface.
+- Direct Kuma adapter code rather than a dependency on the currently v1-only `uptime-kuma-api` wrapper.
+- `uv` lockfile for reproducible dependency resolution.
+- One persistent Socket.IO connection to one Kuma instance in v1, managed through FastMCP's async lifespan.
+- FastMCP direct Streamable HTTP server at `/mcp`, plus a minimal custom `/health` route with no Kuma details.
+- One server process in v1 so the persistent Kuma session and in-memory event cache have one owner.
 - Stateless service: no application database and no credential persistence.
-- Streamable HTTP at `/mcp`; minimal unauthenticated liveness at `/health` with no Kuma details.
 - Stdio may be added later, but Docker Compose plus Streamable HTTP is the default and first release gate.
+- FastMCP and Socket.IO upgrades receive the same contract-test gate as Kuma upgrades; compatible minor versions are not assumed.
 
 ### Authentication
 
 - Kuma: JWT or username/password; API keys are insufficient for Socket.IO management.
-- MCP endpoint: bearer token required by default.
+- MCP endpoint: bearer authentication required by default using FastMCP token verification. The proposed v1 path is an HMAC-signed JWT with explicit issuer/audience and a small offline token-issuance command; FastMCP static tokens are excluded from production because its documentation limits them to development/testing.
 - Compose publishes only to `127.0.0.1` by default. Remote exposure requires an explicitly configured trusted reverse proxy and TLS.
 - Configuration uses environment variables declared in Compose and a committed `.env.example`; no Infisical integration.
 
 ### Docker posture
 
-- Multi-stage build.
+- Multi-stage Python build with dependencies installed from the committed `uv.lock`.
 - Non-root runtime user.
 - Read-only root filesystem, `cap_drop: [ALL]`, `no-new-privileges`, and `tmpfs` for temporary files.
 - Healthcheck, graceful shutdown, bounded reconnect backoff, and pinned image versions.
@@ -243,10 +247,11 @@ Prefer maintenance windows over bulk monitor pausing.
 ## 10. Approval questions
 
 1. Choose Option A (new), B (fork), or C (upstream contribution).
-2. If Option A: approve TypeScript + official MCP SDK + direct Socket.IO adapter?
+2. Approve Python 3.12 + FastMCP 3.x + direct `python-socketio` adapter, with exact dependency pins?
 3. Approve single-instance, read-only-first v1 rather than broad full control?
 4. Approve bearer-authenticated Streamable HTTP bound to localhost by default?
 5. Approve destructive tools being disabled until a later phase?
+6. Approve FastMCP HMAC-JWT verification for the default HTTP deployment, rather than a plaintext static token?
 
 ## Sources
 
@@ -256,3 +261,6 @@ Prefer maintenance windows over bulk monitor pausing.
 - [Bulk Socket.IO mutation database-pool issue](https://github.com/louislam/uptime-kuma/issues/6855)
 - [Active existing MCP](https://github.com/DavidFuchs/mcp-uptime-kuma)
 - [Existing MCP v0.11.0 security and hardening release](https://github.com/DavidFuchs/mcp-uptime-kuma/releases/tag/v0.11.0)
+- [FastMCP documentation](https://gofastmcp.com/)
+- [FastMCP HTTP deployment](https://gofastmcp.com/deployment/http)
+- [FastMCP token verification](https://gofastmcp.com/servers/auth/token-verification)
