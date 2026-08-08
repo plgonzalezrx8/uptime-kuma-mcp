@@ -26,6 +26,7 @@ Concrete compatibility evidence:
 - A current third-party MCP had to add missing write fields, secret redaction, session recovery, and read-after-write verification.
 - Bulk pause/resume traffic has exhausted a Kuma MariaDB pool in the field.
 - As of this proposal, Uptime Kuma's latest release is 2.5.0.
+- A live read-only check on 2026-08-08 confirmed the project owner's infrastructure is running healthy Uptime Kuma 2.5.0. The private host/address is intentionally omitted from this public document.
 
 There are already multiple MIT-licensed MCPs. `DavidFuchs/mcp-uptime-kuma` is active, supports Kuma v2, Docker, stdio and Streamable HTTP, and has a real contributor base. A generic clone would add little value.
 
@@ -226,17 +227,17 @@ Prefer maintenance windows over bulk monitor pausing.
 
 ## 8. Compatibility policy
 
-- Target Kuma 2.5.0 first.
-- Add another version only after its full contract suite passes.
-- Unknown major versions fail closed for write tools.
-- Untested minor versions expose reads with a warning but disable writes by default.
-- Every release publishes a matrix of MCP version to tested Kuma versions.
-- CI tests at least the minimum and latest supported Kuma versions using disposable containers.
+- The v1 supported target is **exactly Uptime Kuma 2.5.0**, matching the project owner's live infrastructure.
+- The integration fixture is pinned to `louislam/uptime-kuma:2.5.0@sha256:a8610b3b4c38077922ba51b036691e06887d7cefd91fe620fd3d6d23d03dc240` so a mutable tag cannot silently change CI behavior.
+- Startup reads Kuma's self-reported version and compares it with the compiled compatibility manifest.
+- If Kuma is not 2.5.0, the server fails closed: `/health` and `kuma_get_instance_info` remain available for diagnosis, but operational read and write tools are disabled with a clear unsupported-version result.
+- A new Kuma version becomes supported only through an explicit proposal update and a passing full contract suite; semver proximity is not treated as compatibility proof.
+- Every MCP release publishes an exact MCP-to-Kuma compatibility matrix.
 
 ## 9. Verification and release gates
 
 - Unit tests for schemas, redaction, policies, rate limits, and reconnect behavior.
-- Integration tests against real disposable Kuma containers.
+- Integration tests against the exact digest-pinned Uptime Kuma 2.5.0 disposable container.
 - Controlled create/read/update/read/delete fixture lifecycle with cleanup verification.
 - Tests proving known secrets cannot appear in results, logs, snapshots, or thrown errors.
 - MCP protocol tests for initialize, tools/list, valid calls, invalid calls, and session shutdown.
@@ -250,8 +251,9 @@ Prefer maintenance windows over bulk monitor pausing.
 2. Approve Python 3.12 + FastMCP 3.x + direct `python-socketio` adapter, with exact dependency pins?
 3. Approve single-instance, read-only-first v1 rather than broad full control?
 4. Approve bearer-authenticated Streamable HTTP bound to localhost by default?
-5. Approve destructive tools being disabled until a later phase?
-6. Approve FastMCP HMAC-JWT verification for the default HTTP deployment, rather than a plaintext static token?
+5. Approve exact Uptime Kuma 2.5.0-only compatibility, failing closed on every other version?
+6. Approve destructive tools being disabled until a later phase?
+7. Approve FastMCP HMAC-JWT verification for the default HTTP deployment, rather than a plaintext static token?
 
 ## Sources
 
