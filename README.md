@@ -4,6 +4,8 @@
 
 A proposed MIT-licensed, FastMCP-based, Docker Compose-first MCP server for safely observing and managing Uptime Kuma.
 
+**Initial compatibility target: Uptime Kuma 2.5.0 only.** Other Kuma versions will not be presented as supported until their contract suite passes.
+
 The intended differentiator is not "more Socket.IO events." Existing projects already provide broad Uptime Kuma control. This proposal instead emphasizes:
 
 - strict secret redaction before data reaches an LLM;
