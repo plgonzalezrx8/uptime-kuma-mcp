@@ -1,0 +1,14 @@
+# Build context exclusions
+.git
+.github
+.venv
+.coverage
+htmlcov
+.pytest_cache
+.mypy_cache
+.ruff_cache
+tests
+.integration-data
+.env
+.env.*
+!.env.example

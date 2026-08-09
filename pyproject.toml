@@ -1,0 +1,74 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "uptime-kuma-mcp"
+version = "0.1.0"
+description = "Safety-first FastMCP server for Uptime Kuma 2.5.0"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { file = "LICENSE" }
+authors = [{ name = "Pedro Gonzalez" }]
+keywords = ["mcp", "uptime-kuma", "monitoring", "fastmcp"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: System :: Monitoring",
+]
+dependencies = [
+  "fastmcp==3.4.6",
+  "python-socketio[asyncio-client]==5.16.3",
+]
+
+[project.urls]
+Homepage = "https://github.com/plgonzalezrx8/uptime-kuma-mcp"
+Issues = "https://github.com/plgonzalezrx8/uptime-kuma-mcp/issues"
+
+[project.scripts]
+uptime-kuma-mcp = "uptime_kuma_mcp.cli:main"
+
+[dependency-groups]
+dev = [
+  "mypy==1.17.1",
+  "pytest==8.4.1",
+  "pytest-asyncio==1.1.0",
+  "pytest-cov==6.2.1",
+  "ruff==0.12.11",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/uptime_kuma_mcp"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers --strict-config"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+  "integration: requires the disposable Uptime Kuma 2.5.0 fixture",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["uptime_kuma_mcp"]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "S", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["uptime_kuma_mcp"]
+warn_unused_ignores = true

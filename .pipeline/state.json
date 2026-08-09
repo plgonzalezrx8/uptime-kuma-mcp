@@ -1,0 +1,8 @@
+{
+  "pipeline": "Planner -> Coder -> Tester -> Reviewer",
+  "status": "implemented",
+  "branch": "feat/initial-read-only-mvp",
+  "request": ".pipeline/request.md",
+  "spec": ".pipeline/spec.md",
+  "open_questions": 0
+}

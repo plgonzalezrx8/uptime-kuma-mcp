@@ -1,0 +1,35 @@
+services:
+  uptime-kuma-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: uptime-kuma-mcp:local
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 256m
+    cpus: 0.50
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    ports:
+      - "${MCP_BIND_ADDRESS:-127.0.0.1}:${MCP_PORT:-8000}:8000"
+    environment:
+      KUMA_URL: "${KUMA_URL:?set KUMA_URL in .env}"
+      KUMA_USERNAME: "${KUMA_USERNAME:-}"
+      KUMA_PASSWORD: "${KUMA_PASSWORD:-}"
+      KUMA_JWT: "${KUMA_JWT:-}"
+      KUMA_2FA_TOKEN: "${KUMA_2FA_TOKEN:-}"
+      KUMA_TLS_VERIFY: "${KUMA_TLS_VERIFY:-true}"
+      KUMA_CONNECT_TIMEOUT: "${KUMA_CONNECT_TIMEOUT:-10}"
+      KUMA_REQUEST_TIMEOUT: "${KUMA_REQUEST_TIMEOUT:-15}"
+      MCP_JWT_SECRET: "${MCP_JWT_SECRET:?set MCP_JWT_SECRET in .env}"
+      MCP_JWT_ISSUER: "${MCP_JWT_ISSUER:-uptime-kuma-mcp}"
+      MCP_JWT_AUDIENCE: "${MCP_JWT_AUDIENCE:-uptime-kuma-mcp}"
+      MCP_HOST: "0.0.0.0"
+      MCP_PORT: "8000"
+      MCP_ALLOWED_HOSTS: "${MCP_ALLOWED_HOSTS:-localhost,127.0.0.1,[::1]}"

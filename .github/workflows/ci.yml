@@ -1,0 +1,140 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.11.32"
+          python-version: "3.12"
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --frozen --all-groups
+      - name: Ruff format
+        run: uv run ruff format --check .
+      - name: Ruff lint
+        run: uv run ruff check .
+      - name: Strict mypy
+        run: uv run mypy src
+      - name: Unit and MCP protocol tests
+        run: uv run pytest -m "not integration" --cov=uptime_kuma_mcp --cov-report=term-missing --cov-report=xml
+      - name: Build Python artifacts
+        run: uv build
+      - name: Audit locked runtime dependencies
+        run: |
+          uv export --frozen --no-dev --no-emit-project --no-hashes \
+            --format requirements-txt --output-file "${RUNNER_TEMP}/requirements-audit.txt"
+          uvx --from pip-audit==2.9.0 pip-audit \
+            --requirement "${RUNNER_TEMP}/requirements-audit.txt"
+      - name: Static security analysis
+        run: uvx --from bandit==1.8.6 bandit -q -r src
+      - name: Scan repository and artifacts for high-confidence secrets
+        run: uv run python scripts/security_scan.py --artifacts dist
+      - name: Validate Compose
+        env:
+          KUMA_URL: http://uptime-kuma:3001
+          KUMA_USERNAME: ci
+          KUMA_PASSWORD: ci-only
+          MCP_JWT_SECRET: 0123456789abcdef0123456789abcdef
+        run: docker compose config --quiet
+      - name: Build hardened container
+        run: docker build --tag uptime-kuma-mcp:ci .
+
+  kuma-2-5-0-contract:
+    runs-on: ubuntu-latest
+    needs: quality
+    services:
+      kuma:
+        image: louislam/uptime-kuma:2.5.0@sha256:a8610b3b4c38077922ba51b036691e06887d7cefd91fe620fd3d6d23d03dc240
+        env:
+          UPTIME_KUMA_DB_TYPE: sqlite
+        ports:
+          - 3001:3001
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.11.32"
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --frozen --all-groups
+      - name: Bootstrap disposable Kuma fixture
+        env:
+          KUMA_URL: http://127.0.0.1:3001
+          KUMA_USERNAME: mcp-contract
+          KUMA_PASSWORD: "McpContract-2.5.0-Test!"
+          MCP_JWT_SECRET: 0123456789abcdef0123456789abcdef
+          MCP_JWT_ISSUER: uptime-kuma-mcp-ci
+          MCP_JWT_AUDIENCE: uptime-kuma-mcp-ci
+        run: uv run python tests/integration/bootstrap_kuma.py
+      - name: Verify exact Socket.IO contract
+        env:
+          KUMA_URL: http://127.0.0.1:3001
+          KUMA_USERNAME: mcp-contract
+          KUMA_PASSWORD: "McpContract-2.5.0-Test!"
+          MCP_JWT_SECRET: 0123456789abcdef0123456789abcdef
+          MCP_JWT_ISSUER: uptime-kuma-mcp-ci
+          MCP_JWT_AUDIENCE: uptime-kuma-mcp-ci
+          RUN_KUMA_CONTRACT: "1"
+        run: uv run pytest -m integration -q
+      - name: Build final smoke-test image
+        run: docker build --tag uptime-kuma-mcp:ci .
+      - name: Scan final image for high and critical vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: uptime-kuma-mcp:ci
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          scanners: vuln
+          severity: HIGH,CRITICAL
+      - name: Start hardened MCP container
+        env:
+          KUMA_USERNAME: mcp-contract
+          KUMA_PASSWORD: "McpContract-2.5.0-Test!"
+          MCP_JWT_SECRET: 0123456789abcdef0123456789abcdef
+          MCP_JWT_ISSUER: uptime-kuma-mcp-ci
+          MCP_JWT_AUDIENCE: uptime-kuma-mcp-ci
+        run: |
+          docker run --detach --name uptime-kuma-mcp-smoke \
+            --network host \
+            --read-only \
+            --cap-drop ALL \
+            --security-opt no-new-privileges:true \
+            --pids-limit 128 \
+            --memory 512m \
+            --cpus 1.0 \
+            --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+            --env KUMA_URL=http://127.0.0.1:3001 \
+            --env KUMA_USERNAME \
+            --env KUMA_PASSWORD \
+            --env MCP_JWT_SECRET \
+            --env MCP_JWT_ISSUER \
+            --env MCP_JWT_AUDIENCE \
+            uptime-kuma-mcp:ci
+      - name: Verify authenticated MCP container behavior
+        env:
+          MCP_JWT_SECRET: 0123456789abcdef0123456789abcdef
+          MCP_JWT_ISSUER: uptime-kuma-mcp-ci
+          MCP_JWT_AUDIENCE: uptime-kuma-mcp-ci
+        run: uv run python tests/integration/container_smoke.py
+      - name: Verify container runtime hardening
+        run: |
+          test "$(docker exec uptime-kuma-mcp-smoke id -u)" != "0"
+          ! docker exec uptime-kuma-mcp-smoke sh -c 'touch /read-only-root-probe'
+      - name: Stop smoke-test container
+        if: always()
+        run: docker rm --force uptime-kuma-mcp-smoke 2>/dev/null || true

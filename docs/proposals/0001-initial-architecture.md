@@ -1,6 +1,6 @@
 # Proposal 0001: Initial architecture and feature scope
 
-- **Status:** Proposed — FastMCP selected by project owner; remaining architecture not yet approved for implementation
+- **Status:** Approved and promoted to [ADR 0001](../adr/0001-fastmcp-uptime-kuma-2-5-0.md)
 - **Date:** 2026-08-08
 - **Repository:** `plgonzalezrx8/uptime-kuma-mcp`
 - **License:** MIT
@@ -9,7 +9,7 @@
 
 Choose whether to build a new safety-first Uptime Kuma MCP, fork an existing implementation, or contribute upstream instead. If a new implementation is approved, also approve the bounded v1 architecture and tool scope below.
 
-No implementation should begin until this proposal is explicitly approved. The canonical Obsidian ADR registry was unreachable while this draft was prepared, so accepted ADR conflict-checking remains a prerequisite before implementation.
+Pedro Gonzalez explicitly approved this proposal on 2026-08-08. The accepted decision is recorded in repository ADR 0001 and canonical Command Center ADR-0033. Accepted ADRs were checked before implementation; ADR-0002's Docker Compose environment-variable policy remains controlling.
 
 ## 2. Evidence and constraints
 
